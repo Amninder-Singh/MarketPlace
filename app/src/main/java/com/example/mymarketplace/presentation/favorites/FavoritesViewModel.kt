@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.mymarketplace.domain.usecase.GetFavoriteProductsUseCase
 import com.example.mymarketplace.domain.usecase.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,17 +18,16 @@ class FavoritesViewModel @Inject constructor(
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase
 ) : ViewModel() {
 
-    val state: StateFlow<FavoritesState> = getFavoriteProductsUseCase()
-        .map { products ->
-            FavoritesState(
-                favoriteProducts = products,
-                isLoading = false
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = FavoritesState(isLoading = true)
-        )
+    private val _state = MutableStateFlow(FavoritesState(isLoading = true))
+    val state = _state.asStateFlow()
+
+    init {
+        getFavoriteProductsUseCase()
+            .onEach { products ->
+                _state.value = FavoritesState(favoriteProducts = products, isLoading = false)
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun onEvent(event: FavoritesEvent) {
         when (event) {

@@ -46,7 +46,6 @@ fun ProductAsyncImage(
         .data(imageUrl)
         .crossfade(true)
 
-    // Efficient thumbnail downsampling to limit memory usage
     if (isThumbnail) {
         imageRequestBuilder.size(400, 400)
     } else {
@@ -90,7 +89,6 @@ fun ProductAsyncImage(
             }
         )
 
-        // Uploading indicator badge if image is queued for background upload
         if (pendingImageUpload) {
             Surface(
                 color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.9f),

@@ -32,7 +32,7 @@ class ProductDetailViewModel @Inject constructor(
     private val productRepository: ProductRepository
 ) : ViewModel() {
 
-    private val productId: String = checkNotNull(savedStateHandle["productId"])
+    private val productId: String = savedStateHandle.get<String>("productId").orEmpty()
     private val showPickerSheet = MutableStateFlow(false)
 
     val state: StateFlow<ProductDetailState> = combine(

@@ -1,6 +1,6 @@
 package com.example.mymarketplace.di
 
-import com.example.mymarketplace.data.remote.api.FakeMarketplaceApi
+import com.example.mymarketplace.data.remote.api.MockMarketplaceApi
 import com.example.mymarketplace.data.remote.api.MarketplaceApi
 import dagger.Binds
 import dagger.Module
@@ -15,6 +15,6 @@ abstract class NetworkModule {
     @Binds
     @Singleton
     abstract fun bindMarketplaceApi(
-        fakeMarketplaceApi: FakeMarketplaceApi
+        mockMarketplaceApi: MockMarketplaceApi
     ): MarketplaceApi
 }

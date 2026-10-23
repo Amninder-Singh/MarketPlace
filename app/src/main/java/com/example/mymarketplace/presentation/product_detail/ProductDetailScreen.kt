@@ -170,7 +170,6 @@ fun ProductDetailScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
-                    // Hero Image
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -184,8 +183,6 @@ fun ProductDetailScreen(
                             pendingImageUpload = product.pendingImageUpload,
                             cornerRadius = 16.dp
                         )
-
-                        // Attach Photo Overlay Button
                         OutlinedButton(
                             onClick = { onEvent(ProductDetailEvent.OnShowImagePickerOptions(true)) },
                             modifier = Modifier

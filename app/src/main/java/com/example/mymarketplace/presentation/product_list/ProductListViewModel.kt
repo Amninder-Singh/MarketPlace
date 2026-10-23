@@ -7,65 +7,77 @@ import com.example.mymarketplace.domain.usecase.GetProductsUseCase
 import com.example.mymarketplace.domain.usecase.ToggleFavoriteUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class ProductListViewModel @Inject constructor(
     private val getProductsUseCase: GetProductsUseCase,
     private val toggleFavoriteUseCase: ToggleFavoriteUseCase,
     private val syncManager: SyncManager
-) : ViewModel() {
+) :
+    ViewModel() {
 
     private val _selectedCategory = MutableStateFlow(ProductListState().selectedCategory)
     private val _searchQuery = MutableStateFlow("")
 
+    private val _state = MutableStateFlow(ProductListState(isLoading = true))
+    val state: StateFlow<ProductListState> = _state.asStateFlow()
+
+    private val _filters = combine(_selectedCategory, _searchQuery) { category, query ->
+        category to query
+    }
+        .debounce(300L)
+        .distinctUntilChanged()
+
     init {
         syncManager.scheduleBackgroundSync()
+
         viewModelScope.launch {
             syncManager.refreshDataNow()
         }
+
+        observeStateChanges()
     }
 
-    private val _products = combine(_selectedCategory, _searchQuery) { category, query ->
-        Pair(category, query)
-    }.flatMapLatest { (category, query) ->
-        getProductsUseCase(category, query)
-    }
+    private fun observeStateChanges() {
+        // Observe Sync State
+        viewModelScope.launch {
+            syncManager.observeSyncState().collect { syncStatus ->
+                _state.update { it.copy(syncState = syncStatus) }
+            }
+        }
 
-    val state: StateFlow<ProductListState> = combine(
-        _products,
-        _selectedCategory,
-        _searchQuery,
-        syncManager.observeSyncState()
-    ) { products, category, query, syncState ->
-        ProductListState(
-            products = products,
-            selectedCategory = category,
-            searchQuery = query,
-            syncState = syncState,
-            isLoading = false
-        )
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = ProductListState(isLoading = true)
-    )
+        // Observe Product List
+        viewModelScope.launch {
+            _filters.flatMapLatest { (category, query) ->
+                getProductsUseCase(category, query)
+            }.collect { products ->
+                _state.update { it.copy(products = products, isLoading = false) }
+            }
+        }
+    }
 
     fun onEvent(event: ProductListEvent) {
         when (event) {
             is ProductListEvent.OnSearchQueryChange -> {
                 _searchQuery.value = event.query
+                _state.update { it.copy(searchQuery = event.query) }
             }
             is ProductListEvent.OnSelectCategory -> {
                 _selectedCategory.value = event.category
+                _state.update { it.copy(selectedCategory = event.category) }
             }
             is ProductListEvent.OnToggleFavorite -> {
                 viewModelScope.launch {
